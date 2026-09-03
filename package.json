@@ -1,0 +1,38 @@
+{
+  "name": "cdp-borrow-demo",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@10.11.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@coinbase/cdp-api-client": "file:vendor/coinbase-cdp-api-client-0.0.123.tgz",
+    "@coinbase/cdp-core": "file:vendor/coinbase-cdp-core-0.0.123.tgz",
+    "@coinbase/cdp-hooks": "file:vendor/coinbase-cdp-hooks-0.0.123.tgz",
+    "lucide-react": "^1.39.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "viem": "2.47.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.1.0",
+    "oxlint": "^1.79.0",
+    "typescript": "~5.8.3",
+    "vite": "^8.2.2"
+  },
+  "pnpm": {
+    "overrides": {
+      "@coinbase/cdp-api-client": "file:vendor/coinbase-cdp-api-client-0.0.123.tgz",
+      "@coinbase/cdp-core": "file:vendor/coinbase-cdp-core-0.0.123.tgz",
+      "@coinbase/cdp-hooks": "file:vendor/coinbase-cdp-hooks-0.0.123.tgz"
+    }
+  }
+}
