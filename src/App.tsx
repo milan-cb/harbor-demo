@@ -46,7 +46,8 @@ type Position = BorrowPositionsPage["borrowPositions"][number];
 type Token = Product["assets"][number]["token"];
 type TokenBalance = Token & { amount: string; rawAmount: bigint };
 type UsdPrices = Record<string, number>;
-type AdjustMode = "addCollateralAmount" | "removeCollateralAmount" | "borrowLoanAmount" | "repayLoanAmount";
+type AdjustAction = "addCollateral" | "borrowMore" | "removeCollateral" | "repayDebt";
+type AdjustAmounts = Record<AdjustAction, string>;
 type Theme = "light" | "dark";
 
 const publicClient = createPublicClient({ chain: base, transport: http() });
@@ -57,6 +58,12 @@ const FEATURED_MARKETS = [
   { collateralSymbols: ["CBXRP"], debtSymbol: "USDC" },
   { collateralSymbols: ["SOL", "CBSOL"], debtSymbol: "USDC" },
 ] as const;
+const EMPTY_ADJUST_AMOUNTS: AdjustAmounts = {
+  addCollateral: "",
+  borrowMore: "",
+  removeCollateral: "",
+  repayDebt: "",
+};
 const balanceRequests = new Map<string, Promise<TokenBalance[]>>();
 let exchangeRatesRequest: Promise<Record<string, string>> | undefined;
 
@@ -247,12 +254,14 @@ async function pollForPositionState(
   refetch: () => Promise<{ data: BorrowPositionsPage | undefined }>,
   isFresh: (positions: Position[]) => boolean,
 ) {
+  let latestPositions: Position[] | undefined;
   for (let attempt = 0; attempt < 15; attempt += 1) {
     if (attempt > 0) await new Promise((resolve) => window.setTimeout(resolve, 2000));
     const result = await refetch();
-    if (isFresh(result.data?.borrowPositions ?? [])) return true;
+    if (result.data) latestPositions = result.data.borrowPositions;
+    if (latestPositions && isFresh(latestPositions)) return latestPositions;
   }
-  return false;
+  return latestPositions;
 }
 
 function Brand() {
@@ -464,8 +473,8 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
   const [positionAction, setPositionAction] = useState<"adjust" | "close" | null>(null);
   const [selectedPositionId, setSelectedPositionId] = useState<string>();
   const [actionPosition, setActionPosition] = useState<Position>();
-  const [adjustMode, setAdjustMode] = useState<AdjustMode>("addCollateralAmount");
-  const [adjustAmount, setAdjustAmount] = useState("");
+  const [selectedAdjustActions, setSelectedAdjustActions] = useState<AdjustAction[]>([]);
+  const [adjustAmounts, setAdjustAmounts] = useState<AdjustAmounts>({ ...EMPTY_ADJUST_AMOUNTS });
   const [adjustSubmitted, setAdjustSubmitted] = useState(false);
   const [adjustSynced, setAdjustSynced] = useState(false);
   const [closeConfirmed, setCloseConfirmed] = useState(false);
@@ -473,6 +482,7 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
   const [closeSynced, setCloseSynced] = useState(false);
   const [activeTab, setActiveTab] = useState<"markets" | "positions">("markets");
   const [expandedPositionId, setExpandedPositionId] = useState<string>();
+  const [latestPositions, setLatestPositions] = useState<Position[]>();
   const [copied, setCopied] = useState(false);
   const [balanceRefreshKey, setBalanceRefreshKey] = useState(0);
   const handledUserOp = useRef<string | undefined>(undefined);
@@ -511,6 +521,7 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
     pageSize: 20,
     enabled: Boolean(smartAccount),
   });
+  const positions = latestPositions ?? positionsQuery.data?.borrowPositions ?? [];
   const refetchPositions = positionsQuery.refetch;
   const createPosition = useCreateBorrowPosition();
   const adjustPosition = useAdjustBorrowPosition();
@@ -518,12 +529,12 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
   const tokenBalances = useTokenBalances(smartAccount, products, balanceRefreshKey);
   const usdPrices = useUsdPrices([
     ...products.flatMap((product) => product.assets.map((asset) => asset.token.symbol)),
-    ...(positionsQuery.data?.borrowPositions.flatMap((position) => [
+    ...positions.flatMap((position) => [
       ...position.onchainState.collateral.map((asset) => asset.token.symbol),
       ...position.onchainState.debt.map((asset) => asset.token.symbol),
-    ]) ?? []),
+    ]),
   ]);
-  const selectedPosition = positionsQuery.data?.borrowPositions.find(
+  const selectedPosition = positions.find(
     (position) => position.borrowProductId === selectedPositionId,
   ) ?? actionPosition;
 
@@ -536,7 +547,9 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
     void pollForPositionState(
       refetchPositions,
       (positions) => positions.some((position) => position.borrowProductId === targetId),
-    ).finally(() => setCreateSynced(true));
+    ).then((freshPositions) => {
+      if (freshPositions) setLatestPositions(freshPositions);
+    }).finally(() => setCreateSynced(true));
   }, [createPosition.status, createPosition.data?.userOpHash, refetchPositions]);
 
   useEffect(() => {
@@ -553,7 +566,9 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
           position.borrowProductId === targetId &&
           (baselineBlock === undefined || position.snapshot.blockNumber > baselineBlock),
       ),
-    ).finally(() => setAdjustSynced(true));
+    ).then((freshPositions) => {
+      if (freshPositions) setLatestPositions(freshPositions);
+    }).finally(() => setAdjustSynced(true));
   }, [adjustPosition.status, adjustPosition.data?.userOpHash, refetchPositions]);
 
   useEffect(() => {
@@ -565,7 +580,9 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
     void pollForPositionState(
       refetchPositions,
       (positions) => !positions.some((position) => position.borrowProductId === targetId),
-    ).finally(() => setCloseSynced(true));
+    ).then((freshPositions) => {
+      if (freshPositions) setLatestPositions(freshPositions);
+    }).finally(() => setCloseSynced(true));
   }, [closePosition.status, closePosition.data?.userOpHash, refetchPositions]);
 
   useEffect(() => {
@@ -577,7 +594,7 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
       });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [activeTab, expandedPositionId, positionsQuery.data?.borrowPositions.length]);
+  }, [activeTab, expandedPositionId, positions.length]);
 
   function openBorrow(product: Product) {
     createPosition.reset();
@@ -608,8 +625,8 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
     closePosition.reset();
     setSelectedPositionId(position.borrowProductId);
     setActionPosition(position);
-    setAdjustMode("addCollateralAmount");
-    setAdjustAmount("");
+    setSelectedAdjustActions([]);
+    setAdjustAmounts({ ...EMPTY_ADJUST_AMOUNTS });
     setAdjustSubmitted(false);
     setAdjustSynced(false);
     setCloseConfirmed(false);
@@ -620,7 +637,9 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
 
   async function submitAdjustment(event: React.FormEvent) {
     event.preventDefault();
-    if (!selectedPosition || !adjustAmount) return;
+    if (!selectedPosition) return;
+    const hasAmount = selectedAdjustActions.some((action) => adjustAmounts[action].trim());
+    if (!hasAmount) return;
     adjustTargetId.current = selectedPosition.borrowProductId;
     adjustBaselineBlock.current = selectedPosition.snapshot.blockNumber;
     setAdjustSynced(false);
@@ -628,10 +647,10 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
     await adjustPosition.adjustBorrowPosition({
       borrowProductId: selectedPosition.borrowProductId,
       useCdpPaymaster: true,
-      ...(adjustMode === "addCollateralAmount" && { addCollateralAmount: adjustAmount }),
-      ...(adjustMode === "removeCollateralAmount" && { removeCollateralAmount: adjustAmount }),
-      ...(adjustMode === "borrowLoanAmount" && { borrowLoanAmount: adjustAmount }),
-      ...(adjustMode === "repayLoanAmount" && { repayLoanAmount: adjustAmount }),
+      ...(selectedAdjustActions.includes("addCollateral") && adjustAmounts.addCollateral && { addCollateralAmount: adjustAmounts.addCollateral }),
+      ...(selectedAdjustActions.includes("borrowMore") && adjustAmounts.borrowMore && { borrowLoanAmount: adjustAmounts.borrowMore }),
+      ...(selectedAdjustActions.includes("removeCollateral") && adjustAmounts.removeCollateral && { removeCollateralAmount: adjustAmounts.removeCollateral }),
+      ...(selectedAdjustActions.includes("repayDebt") && adjustAmounts.repayDebt && { repayLoanAmount: adjustAmounts.repayDebt }),
     });
   }
 
@@ -649,6 +668,21 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
   function viewPosition(borrowProductId: string) {
     setExpandedPositionId(borrowProductId);
     setActiveTab("positions");
+  }
+
+  function toggleAdjustAction(action: AdjustAction) {
+    const increaseActions: AdjustAction[] = ["addCollateral", "borrowMore"];
+    const actionIsIncrease = increaseActions.includes(action);
+    const hasIncreaseAction = selectedAdjustActions.some((currentAction) => increaseActions.includes(currentAction));
+    const hasDecreaseAction = selectedAdjustActions.some((currentAction) => !increaseActions.includes(currentAction));
+    if ((actionIsIncrease && hasDecreaseAction) || (!actionIsIncrease && hasIncreaseAction)) return;
+
+    if (selectedAdjustActions.includes(action)) {
+      setSelectedAdjustActions((currentActions) => currentActions.filter((currentAction) => currentAction !== action));
+      setAdjustAmounts((currentAmounts) => ({ ...currentAmounts, [action]: "" }));
+      return;
+    }
+    setSelectedAdjustActions((currentActions) => [...currentActions, action]);
   }
 
   const visibleBalances = tokenBalances.balances
@@ -669,6 +703,11 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
   const projectedLtvIsHigh = projectedBorrowLtv !== undefined && selectedMaxLtv !== undefined
     ? projectedBorrowLtv >= selectedMaxLtv
     : false;
+  const adjustCollateralSymbol = selectedPosition?.onchainState.collateral[0]?.token.symbol;
+  const adjustDebtSymbol = selectedPosition?.onchainState.debt[0]?.token.symbol;
+  const hasIncreaseAdjustment = selectedAdjustActions.some((action) => action === "addCollateral" || action === "borrowMore");
+  const hasDecreaseAdjustment = selectedAdjustActions.some((action) => action === "removeCollateral" || action === "repayDebt");
+  const hasAdjustmentAmount = selectedAdjustActions.some((action) => adjustAmounts[action].trim());
 
   return (
     <div className="app-shell">
@@ -740,8 +779,8 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
 
           <article className="balance-card accent-card">
             <div className="card-heading"><span>Open positions</span><CircleDollarSign size={20} /></div>
-            <strong className="hero-number">{positionsQuery.data?.borrowPositions.length ?? 0}</strong>
-            <p>{positionsQuery.data?.borrowPositions.length ? "Your borrowing activity is healthy" : "Start with a collateral-backed loan"}</p>
+            <strong className="hero-number">{positions.length}</strong>
+            <p>{positions.length ? "Your borrowing activity is healthy" : "Start with a collateral-backed loan"}</p>
             <button className="card-link" onClick={() => setActiveTab("positions")}>View positions <ArrowRight size={15} /></button>
           </article>
         </section>
@@ -794,9 +833,9 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
           </div>
           {positionsQuery.status === "pending" && !positionsQuery.data ? (
             <div className="position-empty"><LoaderCircle className="spin" /> Loading your positions</div>
-          ) : positionsQuery.data?.borrowPositions.length ? (
+          ) : positions.length ? (
             <div className="position-grid">
-              {positionsQuery.data.borrowPositions.map((position) => {
+              {positions.map((position) => {
                 const product = products.find((item) => item.borrowProductId === position.borrowProductId);
                 const collateral = position.onchainState.collateral[0];
                 const debt = position.onchainState.debt[0];
@@ -955,46 +994,81 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
             ) : (
               <form className="borrow-form" onSubmit={submitAdjustment}>
                 <div className="adjust-options" role="group" aria-label="Adjustment type">
-                  <button type="button" className={adjustMode === "addCollateralAmount" ? "active" : ""} onClick={() => { setAdjustMode("addCollateralAmount"); setAdjustAmount(""); }}>
+                  <button type="button" className={selectedAdjustActions.includes("addCollateral") ? "active" : ""} disabled={hasDecreaseAdjustment} onClick={() => toggleAdjustAction("addCollateral")}>
                     <Plus size={17} /><span><strong>Add collateral</strong><small>Improve position health</small></span>
                   </button>
-                  <button type="button" className={adjustMode === "removeCollateralAmount" ? "active" : ""} onClick={() => { setAdjustMode("removeCollateralAmount"); setAdjustAmount(""); }}>
-                    <Minus size={17} /><span><strong>Withdraw collateral</strong><small>Returns assets to wallet</small></span>
-                  </button>
-                  <button type="button" className={adjustMode === "borrowLoanAmount" ? "active" : ""} onClick={() => { setAdjustMode("borrowLoanAmount"); setAdjustAmount(""); }}>
+                  <button type="button" className={selectedAdjustActions.includes("borrowMore") ? "active" : ""} disabled={hasDecreaseAdjustment} onClick={() => toggleAdjustAction("borrowMore")}>
                     <TrendingUp size={17} /><span><strong>Borrow more</strong><small>Increase outstanding debt</small></span>
                   </button>
-                  <button type="button" className={adjustMode === "repayLoanAmount" ? "active" : ""} onClick={() => { setAdjustMode("repayLoanAmount"); setAdjustAmount(""); }}>
+                  <button type="button" className={selectedAdjustActions.includes("removeCollateral") ? "active" : ""} disabled={hasIncreaseAdjustment} onClick={() => toggleAdjustAction("removeCollateral")}>
+                    <Minus size={17} /><span><strong>Withdraw collateral</strong><small>Returns assets to wallet</small></span>
+                  </button>
+                  <button type="button" className={selectedAdjustActions.includes("repayDebt") ? "active" : ""} disabled={hasIncreaseAdjustment} onClick={() => toggleAdjustAction("repayDebt")}>
                     <CircleDollarSign size={17} /><span><strong>Repay debt</strong><small>Reduce outstanding debt</small></span>
                   </button>
                 </div>
 
-                <label>
-                  <span>Amount</span>
-                  <div className="amount-field">
-                    <input inputMode="decimal" placeholder="0.00" value={adjustAmount} onChange={(event) => setAdjustAmount(event.target.value)} autoFocus required />
-                    <b>{adjustMode === "addCollateralAmount" || adjustMode === "removeCollateralAmount"
-                      ? selectedPosition.onchainState.collateral[0]?.token.symbol
-                      : selectedPosition.onchainState.debt[0]?.token.symbol}</b>
-                  </div>
-                  {(() => {
-                    const symbol = adjustMode === "addCollateralAmount" || adjustMode === "removeCollateralAmount"
-                      ? selectedPosition.onchainState.collateral[0]?.token.symbol
-                      : selectedPosition.onchainState.debt[0]?.token.symbol;
-                    const estimate = symbol ? estimateUsd(adjustAmount, symbol, usdPrices) : undefined;
-                    return estimate !== undefined && adjustAmount
-                      ? <small className="input-estimate">Approximately {formatUsd(estimate)}</small>
-                      : null;
-                  })()}
-                </label>
+                <div className="adjust-input-grid">
+                  {selectedAdjustActions.includes("addCollateral") && (
+                    <label>
+                      <span>Collateral to add</span>
+                      <div className="amount-field">
+                        <input inputMode="decimal" placeholder="0.00" value={adjustAmounts.addCollateral} onChange={(event) => setAdjustAmounts((amounts) => ({ ...amounts, addCollateral: event.target.value }))} autoFocus />
+                        <b>{adjustCollateralSymbol}</b>
+                      </div>
+                      {adjustCollateralSymbol && adjustAmounts.addCollateral && estimateUsd(adjustAmounts.addCollateral, adjustCollateralSymbol, usdPrices) !== undefined && (
+                        <small className="input-estimate">Approximately {formatUsd(estimateUsd(adjustAmounts.addCollateral, adjustCollateralSymbol, usdPrices) ?? 0)}</small>
+                      )}
+                    </label>
+                  )}
+                  {selectedAdjustActions.includes("borrowMore") && (
+                    <label>
+                      <span>Additional amount to borrow</span>
+                      <div className="amount-field">
+                        <input inputMode="decimal" placeholder="0.00" value={adjustAmounts.borrowMore} onChange={(event) => setAdjustAmounts((amounts) => ({ ...amounts, borrowMore: event.target.value }))} autoFocus={!selectedAdjustActions.includes("addCollateral")} />
+                        <b>{adjustDebtSymbol}</b>
+                      </div>
+                      {adjustDebtSymbol && adjustAmounts.borrowMore && estimateUsd(adjustAmounts.borrowMore, adjustDebtSymbol, usdPrices) !== undefined && (
+                        <small className="input-estimate">Approximately {formatUsd(estimateUsd(adjustAmounts.borrowMore, adjustDebtSymbol, usdPrices) ?? 0)}</small>
+                      )}
+                    </label>
+                  )}
+                  {selectedAdjustActions.includes("removeCollateral") && (
+                    <label>
+                      <span>Collateral to withdraw</span>
+                      <div className="amount-field">
+                        <input inputMode="decimal" placeholder="0.00" value={adjustAmounts.removeCollateral} onChange={(event) => setAdjustAmounts((amounts) => ({ ...amounts, removeCollateral: event.target.value }))} autoFocus />
+                        <b>{adjustCollateralSymbol}</b>
+                      </div>
+                      {adjustCollateralSymbol && adjustAmounts.removeCollateral && estimateUsd(adjustAmounts.removeCollateral, adjustCollateralSymbol, usdPrices) !== undefined && (
+                        <small className="input-estimate">Approximately {formatUsd(estimateUsd(adjustAmounts.removeCollateral, adjustCollateralSymbol, usdPrices) ?? 0)}</small>
+                      )}
+                    </label>
+                  )}
+                  {selectedAdjustActions.includes("repayDebt") && (
+                    <label>
+                      <span>Debt to repay</span>
+                      <div className="amount-field">
+                        <input inputMode="decimal" placeholder="0.00" value={adjustAmounts.repayDebt} onChange={(event) => setAdjustAmounts((amounts) => ({ ...amounts, repayDebt: event.target.value }))} autoFocus={!selectedAdjustActions.includes("removeCollateral")} />
+                        <b>{adjustDebtSymbol}</b>
+                      </div>
+                      {adjustDebtSymbol && adjustAmounts.repayDebt && estimateUsd(adjustAmounts.repayDebt, adjustDebtSymbol, usdPrices) !== undefined && (
+                        <small className="input-estimate">Approximately {formatUsd(estimateUsd(adjustAmounts.repayDebt, adjustDebtSymbol, usdPrices) ?? 0)}</small>
+                      )}
+                    </label>
+                  )}
+                </div>
 
-                {(adjustMode === "removeCollateralAmount" || adjustMode === "borrowLoanAmount") && (
-                  <div className="action-caution"><AlertTriangle size={17} /> This action can reduce your position health and increase liquidation risk.</div>
+                {selectedAdjustActions.length === 0 && (
+                  <div className="action-note">Choose an action above. You can select both actions in the same row.</div>
                 )}
-                {adjustMode === "repayLoanAmount" && (
-                  <div className="action-note">The repayment asset must be available in your smart account balance.</div>
+                {hasIncreaseAdjustment && (
+                  <div className="action-caution"><AlertTriangle size={17} /> Borrowing more can reduce position health; adding collateral can offset that change.</div>
                 )}
-                <button className="primary-button" disabled={!adjustAmount || adjustPosition.status === "pending"}>
+                {hasDecreaseAdjustment && (
+                  <div className="action-caution"><AlertTriangle size={17} /> Withdrawing collateral can reduce position health; repaying debt can offset that change.</div>
+                )}
+                <button className="primary-button" disabled={!hasAdjustmentAmount || adjustPosition.status === "pending"}>
                   {adjustPosition.status === "pending" ? <><LoaderCircle className="spin" size={18} /> Confirming adjustment</> : <>Review and confirm <ArrowRight size={18} /></>}
                 </button>
               </form>
