@@ -396,13 +396,37 @@ function TokenIcon({ symbol }: { symbol: string }) {
   const normalized = symbol.toLowerCase();
   let icon: React.ReactNode = symbol.slice(0, 1);
 
-  if (normalized.includes("btc")) {
+  if (normalized === "cbbtc") {
+    icon = (
+      <img
+        src="https://s2.coinmarketcap.com/static/img/coins/64x64/32994.png"
+        srcSet="https://s2.coinmarketcap.com/static/img/coins/64x64/32994.png 1x, https://s2.coinmarketcap.com/static/img/coins/128x128/32994.png 2x"
+        alt=""
+      />
+    );
+  } else if (normalized.includes("btc")) {
     icon = <Bitcoin size={18} />;
+  } else if (normalized === "cbeth") {
+    icon = (
+      <img
+        src="https://s2.coinmarketcap.com/static/img/coins/64x64/21535.png"
+        srcSet="https://s2.coinmarketcap.com/static/img/coins/64x64/21535.png 1x, https://s2.coinmarketcap.com/static/img/coins/128x128/21535.png 2x"
+        alt=""
+      />
+    );
   } else if (normalized.includes("eth")) {
     icon = (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path fill="currentColor" d="M12 2 5.8 12.3 12 15.9l6.2-3.6L12 2Zm0 15.1-6.2-3.6L12 22l6.2-8.5-6.2 3.6Z" />
       </svg>
+    );
+  } else if (normalized === "sol") {
+    icon = (
+      <img
+        src="https://s2.coinmarketcap.com/static/img/coins/64x64/16116.png"
+        srcSet="https://s2.coinmarketcap.com/static/img/coins/64x64/16116.png 1x, https://s2.coinmarketcap.com/static/img/coins/128x128/16116.png 2x"
+        alt=""
+      />
     );
   } else if (normalized.includes("sol")) {
     icon = (
@@ -410,11 +434,27 @@ function TokenIcon({ symbol }: { symbol: string }) {
         <path fill="currentColor" d="M6.1 5h13.2l-2.5 2.8H3.6L6.1 5Zm0 11.2h13.2L16.8 19H3.6l2.5-2.8Zm10.7-5.6H3.6l2.5 2.8h13.2l-2.5-2.8Z" />
       </svg>
     );
+  } else if (normalized === "cbxrp") {
+    icon = (
+      <img
+        src="https://s2.coinmarketcap.com/static/img/coins/64x64/36707.png"
+        srcSet="https://s2.coinmarketcap.com/static/img/coins/64x64/36707.png 1x, https://s2.coinmarketcap.com/static/img/coins/128x128/36707.png 2x"
+        alt=""
+      />
+    );
   } else if (normalized.includes("xrp")) {
     icon = (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path fill="currentColor" d="M5.1 4h3.1c.6 0 1.1.2 1.5.6L12 6.9l2.3-2.3c.4-.4.9-.6 1.5-.6h3.1l-5.4 5.4a2.1 2.1 0 0 1-3 0L5.1 4Zm13.8 16h-3.1c-.6 0-1.1-.2-1.5-.6L12 17.1l-2.3 2.3c-.4.4-.9.6-1.5.6H5.1l5.4-5.4a2.1 2.1 0 0 1 3 0l5.4 5.4Z" />
       </svg>
+    );
+  } else if (normalized === "usdc") {
+    icon = (
+      <img
+        src="https://s2.coinmarketcap.com/static/img/coins/64x64/3408.png"
+        srcSet="https://s2.coinmarketcap.com/static/img/coins/64x64/3408.png 1x, https://s2.coinmarketcap.com/static/img/coins/128x128/3408.png 2x"
+        alt=""
+      />
     );
   } else if (normalized.includes("usd")) {
     icon = "$";
@@ -481,7 +521,7 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
   const [closeSubmitted, setCloseSubmitted] = useState(false);
   const [closeSynced, setCloseSynced] = useState(false);
   const [activeTab, setActiveTab] = useState<"markets" | "positions">("markets");
-  const [expandedPositionId, setExpandedPositionId] = useState<string>();
+  const [focusedPositionId, setFocusedPositionId] = useState<string>();
   const [latestPositions, setLatestPositions] = useState<Position[]>();
   const [copied, setCopied] = useState(false);
   const [balanceRefreshKey, setBalanceRefreshKey] = useState(0);
@@ -542,13 +582,13 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
     if (createPosition.status !== "success" || !createPosition.data?.userOpHash) return;
     if (handledUserOp.current === createPosition.data.userOpHash) return;
     handledUserOp.current = createPosition.data.userOpHash;
-    setBalanceRefreshKey((value) => value + 1);
     const targetId = createTargetId.current;
     void pollForPositionState(
       refetchPositions,
       (positions) => positions.some((position) => position.borrowProductId === targetId),
     ).then((freshPositions) => {
       if (freshPositions) setLatestPositions(freshPositions);
+      setBalanceRefreshKey((value) => value + 1);
     }).finally(() => setCreateSynced(true));
   }, [createPosition.status, createPosition.data?.userOpHash, refetchPositions]);
 
@@ -556,7 +596,6 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
     if (adjustPosition.status !== "success" || !adjustPosition.data?.userOpHash) return;
     if (handledAdjustUserOp.current === adjustPosition.data.userOpHash) return;
     handledAdjustUserOp.current = adjustPosition.data.userOpHash;
-    setBalanceRefreshKey((value) => value + 1);
     const targetId = adjustTargetId.current;
     const baselineBlock = adjustBaselineBlock.current;
     void pollForPositionState(
@@ -568,6 +607,7 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
       ),
     ).then((freshPositions) => {
       if (freshPositions) setLatestPositions(freshPositions);
+      setBalanceRefreshKey((value) => value + 1);
     }).finally(() => setAdjustSynced(true));
   }, [adjustPosition.status, adjustPosition.data?.userOpHash, refetchPositions]);
 
@@ -575,26 +615,26 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
     if (closePosition.status !== "success" || !closePosition.data?.userOpHash) return;
     if (handledCloseUserOp.current === closePosition.data.userOpHash) return;
     handledCloseUserOp.current = closePosition.data.userOpHash;
-    setBalanceRefreshKey((value) => value + 1);
     const targetId = closeTargetId.current;
     void pollForPositionState(
       refetchPositions,
       (positions) => !positions.some((position) => position.borrowProductId === targetId),
     ).then((freshPositions) => {
       if (freshPositions) setLatestPositions(freshPositions);
+      setBalanceRefreshKey((value) => value + 1);
     }).finally(() => setCloseSynced(true));
   }, [closePosition.status, closePosition.data?.userOpHash, refetchPositions]);
 
   useEffect(() => {
-    if (activeTab !== "positions" || !expandedPositionId) return;
+    if (activeTab !== "positions" || !focusedPositionId) return;
     const frame = window.requestAnimationFrame(() => {
-      document.querySelector(`[data-position-id="${expandedPositionId}"]`)?.scrollIntoView({
+      document.querySelector(`[data-position-id="${focusedPositionId}"]`)?.scrollIntoView({
         behavior: "smooth",
         block: "center",
       });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [activeTab, expandedPositionId, positions.length]);
+  }, [activeTab, focusedPositionId, positions.length]);
 
   function openBorrow(product: Product) {
     createPosition.reset();
@@ -665,9 +705,40 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
     });
   }
 
-  function viewPosition(borrowProductId: string) {
-    setExpandedPositionId(borrowProductId);
+  async function refreshPositions(borrowProductId?: string) {
+    const expectedIds = borrowProductId
+      ? [borrowProductId]
+      : positions.map((position) => position.borrowProductId);
+    const freshPositions = await pollForPositionState(
+      refetchPositions,
+      (nextPositions) => {
+        const expectedPositions = expectedIds.length
+          ? expectedIds.map((id) => nextPositions.find((position) => position.borrowProductId === id))
+          : nextPositions;
+        return expectedPositions.every((position) =>
+          position !== undefined && position.onchainState.debt.every(
+            (asset) => Number(asset.amount) <= 0 || (asset.borrowApyBps ?? 0) > 0,
+          ),
+        );
+      },
+    );
+    if (freshPositions) setLatestPositions(freshPositions);
+  }
+
+  function refreshTokenBalances() {
+    setBalanceRefreshKey((value) => value + 1);
+  }
+
+  function viewMarkets() {
+    setActiveTab("markets");
+    refreshTokenBalances();
+  }
+
+  function viewPositions(borrowProductId?: string) {
+    if (borrowProductId) setFocusedPositionId(borrowProductId);
     setActiveTab("positions");
+    refreshTokenBalances();
+    void refreshPositions(borrowProductId);
   }
 
   function toggleAdjustAction(action: AdjustAction) {
@@ -714,8 +785,8 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
       <header className="topbar">
         <Brand />
         <nav aria-label="Dashboard views">
-          <button className={activeTab === "markets" ? "active" : ""} onClick={() => setActiveTab("markets")}>Markets</button>
-          <button className={activeTab === "positions" ? "active" : ""} onClick={() => setActiveTab("positions")}>Positions</button>
+          <button className={activeTab === "markets" ? "active" : ""} onClick={viewMarkets}>Markets</button>
+          <button className={activeTab === "positions" ? "active" : ""} onClick={() => viewPositions()}>Positions</button>
         </nav>
         <div className="account-menu">
           <ThemeToggle theme={theme} onToggle={onToggleTheme} />
@@ -763,7 +834,7 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
                   <div className="asset-row" key={balance.address}>
                     <TokenIcon symbol={balance.symbol} />
                     <div>
-                      <strong>{formatAmount(balance.amount, balance.symbol.toLowerCase().includes("btc") ? 8 : 2)} {balance.symbol}</strong>
+                      <strong>{formatAmount(balance.amount, /btc|eth/i.test(balance.symbol) ? 8 : 2)} {balance.symbol}</strong>
                       <span>Base</span>
                     </div>
                     <div className="asset-usd">
@@ -781,7 +852,7 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
             <div className="card-heading"><span>Open positions</span><CircleDollarSign size={20} /></div>
             <strong className="hero-number">{positions.length}</strong>
             <p>{positions.length ? "Your borrowing activity is healthy" : "Start with a collateral-backed loan"}</p>
-            <button className="card-link" onClick={() => setActiveTab("positions")}>View positions <ArrowRight size={15} /></button>
+            <button className="card-link" onClick={() => viewPositions()}>View positions <ArrowRight size={15} /></button>
           </article>
         </section>
 
@@ -839,9 +910,6 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
                 const product = products.find((item) => item.borrowProductId === position.borrowProductId);
                 const collateral = position.onchainState.collateral[0];
                 const debt = position.onchainState.debt[0];
-                const lltv = product?.protocolDetails.type === "morpho_blue"
-                  ? product.protocolDetails.marketParams.lltvBps / 100
-                  : undefined;
                 const borrowApy = debt?.borrowApyBps !== undefined ? debt.borrowApyBps / 100 : undefined;
                 const currentLtv = position.onchainState.currentLtvBps !== undefined
                   ? position.onchainState.currentLtvBps / 100
@@ -854,10 +922,10 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
                   : undefined;
                 const collateralUsd = estimateAssetListUsd(position.onchainState.collateral, usdPrices);
                 const debtUsd = estimateAssetListUsd(position.onchainState.debt, usdPrices);
-                const isExpanded = expandedPositionId === position.borrowProductId;
+                const isFocused = focusedPositionId === position.borrowProductId;
                 return (
                   <article
-                    className={`position-card ${isExpanded ? "expanded" : ""}`}
+                    className={`position-card ${isFocused ? "focused" : ""}`}
                     data-position-id={position.borrowProductId}
                     key={position.borrowProductId}
                   >
@@ -896,48 +964,20 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
                       <div><span>Health factor</span><strong>{position.onchainState.healthFactor ?? "N/A"}</strong></div>
                     </div>
 
-                    <button
-                      className="position-details-toggle"
-                      aria-expanded={isExpanded}
-                      onClick={() => setExpandedPositionId(isExpanded ? undefined : position.borrowProductId)}
-                    >
-                      <span>{isExpanded ? "Hide position details" : "View position details"}</span>
-                      <ChevronRight size={16} />
-                    </button>
-
-                    {isExpanded && (
-                      <div className="position-detail-panel">
-                        <div className="detail-risk-card">
-                          <div className="detail-risk-heading"><ShieldCheck size={18} /><span>Liquidation health</span></div>
-                          <div className="ltv-track">
-                            <span style={{ width: `${Math.min(currentLtv ?? 0, 100)}%` }} />
-                            {liquidationThreshold !== undefined && <i style={{ left: `${Math.min(liquidationThreshold, 100)}%` }} />}
-                          </div>
-                          <div className="ltv-labels">
-                            <span>Current {currentLtv !== undefined ? `${currentLtv.toFixed(2)}%` : "N/A"}</span>
-                            <span>Liquidation {liquidationThreshold !== undefined ? `${liquidationThreshold.toFixed(2)}%` : "N/A"}</span>
-                          </div>
-                          <strong>{liquidationBuffer !== undefined ? `${liquidationBuffer.toFixed(2)} percentage points of buffer` : "Liquidation buffer unavailable"}</strong>
-                        </div>
-
-                        <div className="position-detail-grid">
-                          <div><span>Borrow APY</span><strong>{borrowApy !== undefined ? `${borrowApy.toFixed(2)}%` : "Unavailable"}</strong></div>
-                          <div><span>Health factor</span><strong>{position.onchainState.healthFactor ?? "N/A"}</strong></div>
-                          <div><span>Max market LTV</span><strong>{lltv !== undefined ? `${lltv.toFixed(2)}%` : "Unavailable"}</strong></div>
-                          <div><span>Snapshot block</span><strong>{position.snapshot.blockNumber.toLocaleString()}</strong></div>
-                          <div><span>Last observed</span><strong>{new Date(position.snapshot.observedAt).toLocaleString()}</strong></div>
-                          <div><span>Network</span><strong>{position.network}</strong></div>
-                        </div>
-
-                        <div className="position-identifiers">
-                          <div><span>Smart account</span><code>{position.address}</code></div>
-                          <div><span>Borrow product</span><code>{position.borrowProductId}</code></div>
-                          {product?.protocolDetails.type === "morpho_blue" && (
-                            <div><span>Morpho market</span><code>{product.protocolDetails.marketParams.onchainMarketId}</code></div>
-                          )}
-                        </div>
+                    <div className="position-risk">
+                      <div className="position-risk-heading">
+                        <span>Liquidation health</span>
+                        <strong>{liquidationBuffer !== undefined ? `${liquidationBuffer.toFixed(2)} pts buffer` : "Unavailable"}</strong>
                       </div>
-                    )}
+                      <div className="ltv-track">
+                        <span style={{ width: `${Math.min(currentLtv ?? 0, 100)}%` }} />
+                        {liquidationThreshold !== undefined && <i style={{ left: `${Math.min(liquidationThreshold, 100)}%` }} />}
+                      </div>
+                      <div className="ltv-labels">
+                        <span>Current {currentLtv !== undefined ? `${currentLtv.toFixed(2)}%` : "N/A"}</span>
+                        <span>Liquidation {liquidationThreshold !== undefined ? `${liquidationThreshold.toFixed(2)}%` : "N/A"}</span>
+                      </div>
+                    </div>
 
                     <div className="position-actions">
                       <button className="position-action adjust-action" onClick={() => openPositionAction(position, "adjust")}>
@@ -1154,7 +1194,7 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
                 <span className="success-icon"><Check size={26} /></span>
                 <h3>Borrow confirmed</h3>
                 <p>Your {selectedAssets.debt?.token.symbol} balance and position are refreshing now.</p>
-                <button className="primary-button" onClick={() => { setIsBorrowOpen(false); viewPosition(selectedProduct.borrowProductId); }}>View position</button>
+                <button className="primary-button" onClick={() => { setIsBorrowOpen(false); viewPositions(selectedProduct.borrowProductId); }}>View position</button>
               </div>
             ) : borrowSubmitted ? (
               createPosition.status === "error" ? (
