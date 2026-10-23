@@ -18,6 +18,7 @@ import {
   ArrowRight,
   Bitcoin,
   Check,
+  ChevronDown,
   ChevronRight,
   CircleDollarSign,
   Copy,
@@ -37,8 +38,21 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPublicClient, erc20Abi, formatUnits, http } from "viem";
-import { base } from "viem/chains";
+import { erc20Abi, formatUnits } from "viem";
+import {
+  formatAmount,
+  formatCompactUsd,
+  formatExactAmount,
+  formatPercent,
+  formatUsd,
+  publicClient,
+  shortAddress,
+} from "./format";
+import { LendView } from "./LendView";
+import { readLendVaults } from "./vaults";
+import { SendView } from "./SendView";
+import { useMorphoMarkets } from "./morpho";
+import { OperationFailure, OperationProgress, TokenIcon } from "./shared";
 import "./App.css";
 
 type Product = EvmBorrowProductsPage["borrowProducts"][number];
@@ -49,8 +63,13 @@ type UsdPrices = Record<string, number>;
 type AdjustAction = "addCollateral" | "borrowMore" | "removeCollateral" | "repayDebt";
 type AdjustAmounts = Record<AdjustAction, string>;
 type Theme = "light" | "dark";
+type DashboardView = "markets" | "positions" | "vaults" | "send";
 
-const publicClient = createPublicClient({ chain: base, transport: http() });
+// Demo only: greet the signed-in user by name instead of the local part of the email.
+const DISPLAY_NAME = "Milan Saxena";
+
+const LEND_VAULTS = readLendVaults(import.meta.env);
+
 const EMPTY_PRODUCTS: Product[] = [];
 const FEATURED_MARKETS = [
   { collateralSymbols: ["CBBTC"], debtSymbol: "USDC" },
@@ -112,27 +131,6 @@ async function fetchTokenBalances(address: `0x${string}`, tokens: Token[]) {
   });
 }
 
-function formatAmount(value: string, maximumFractionDigits = 4) {
-  const amount = Number(value);
-  if (!Number.isFinite(amount)) return value;
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits }).format(amount);
-}
-
-function formatExactAmount(value: string) {
-  const [integer, fraction] = value.split(".");
-  if (!integer || !/^-?\d+$/.test(integer)) return value;
-  const formattedInteger = BigInt(integer).toLocaleString("en-US");
-  return fraction ? `${formattedInteger}.${fraction}` : formattedInteger;
-}
-
-function formatUsd(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: value > 0 && value < 0.01 ? 6 : 2,
-  }).format(value);
-}
-
 function estimateUsd(amount: string, symbol: string, prices: UsdPrices) {
   const price = prices[getPriceTicker(symbol)];
   const numericAmount = Number(amount);
@@ -147,10 +145,6 @@ function estimateAssetListUsd(
   return estimates.every((estimate) => estimate !== undefined)
     ? estimates.reduce<number>((total, estimate) => total + (estimate ?? 0), 0)
     : undefined;
-}
-
-function shortAddress(address: string) {
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
 function getProductAssets(product: Product) {
@@ -392,116 +386,69 @@ function SignIn({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () => v
   );
 }
 
-function TokenIcon({ symbol }: { symbol: string }) {
-  const normalized = symbol.toLowerCase();
-  let icon: React.ReactNode = symbol.slice(0, 1);
+type NavItem = { id: DashboardView; label: string; description: string };
 
-  if (normalized === "cbbtc") {
-    icon = (
-      <img
-        src="https://s2.coinmarketcap.com/static/img/coins/64x64/32994.png"
-        srcSet="https://s2.coinmarketcap.com/static/img/coins/64x64/32994.png 1x, https://s2.coinmarketcap.com/static/img/coins/128x128/32994.png 2x"
-        alt=""
-      />
-    );
-  } else if (normalized.includes("btc")) {
-    icon = <Bitcoin size={18} />;
-  } else if (normalized === "cbeth") {
-    icon = (
-      <img
-        src="https://s2.coinmarketcap.com/static/img/coins/64x64/21535.png"
-        srcSet="https://s2.coinmarketcap.com/static/img/coins/64x64/21535.png 1x, https://s2.coinmarketcap.com/static/img/coins/128x128/21535.png 2x"
-        alt=""
-      />
-    );
-  } else if (normalized.includes("eth")) {
-    icon = (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path fill="currentColor" d="M12 2 5.8 12.3 12 15.9l6.2-3.6L12 2Zm0 15.1-6.2-3.6L12 22l6.2-8.5-6.2 3.6Z" />
-      </svg>
-    );
-  } else if (normalized === "sol") {
-    icon = (
-      <img
-        src="https://s2.coinmarketcap.com/static/img/coins/64x64/16116.png"
-        srcSet="https://s2.coinmarketcap.com/static/img/coins/64x64/16116.png 1x, https://s2.coinmarketcap.com/static/img/coins/128x128/16116.png 2x"
-        alt=""
-      />
-    );
-  } else if (normalized.includes("sol")) {
-    icon = (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path fill="currentColor" d="M6.1 5h13.2l-2.5 2.8H3.6L6.1 5Zm0 11.2h13.2L16.8 19H3.6l2.5-2.8Zm10.7-5.6H3.6l2.5 2.8h13.2l-2.5-2.8Z" />
-      </svg>
-    );
-  } else if (normalized === "cbxrp") {
-    icon = (
-      <img
-        src="https://s2.coinmarketcap.com/static/img/coins/64x64/36707.png"
-        srcSet="https://s2.coinmarketcap.com/static/img/coins/64x64/36707.png 1x, https://s2.coinmarketcap.com/static/img/coins/128x128/36707.png 2x"
-        alt=""
-      />
-    );
-  } else if (normalized.includes("xrp")) {
-    icon = (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path fill="currentColor" d="M5.1 4h3.1c.6 0 1.1.2 1.5.6L12 6.9l2.3-2.3c.4-.4.9-.6 1.5-.6h3.1l-5.4 5.4a2.1 2.1 0 0 1-3 0L5.1 4Zm13.8 16h-3.1c-.6 0-1.1-.2-1.5-.6L12 17.1l-2.3 2.3c-.4.4-.9.6-1.5.6H5.1l5.4-5.4a2.1 2.1 0 0 1 3 0l5.4 5.4Z" />
-      </svg>
-    );
-  } else if (normalized === "usdc") {
-    icon = (
-      <img
-        src="https://s2.coinmarketcap.com/static/img/coins/64x64/3408.png"
-        srcSet="https://s2.coinmarketcap.com/static/img/coins/64x64/3408.png 1x, https://s2.coinmarketcap.com/static/img/coins/128x128/3408.png 2x"
-        alt=""
-      />
-    );
-  } else if (normalized.includes("usd")) {
-    icon = "$";
-  }
+function NavMenu({
+  label,
+  items,
+  current,
+  onSelect,
+}: {
+  label: string;
+  items: NavItem[];
+  current: DashboardView;
+  onSelect: (view: DashboardView) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const isActive = items.some((item) => item.id === current);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    function handlePointer(event: PointerEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) setIsOpen(false);
+    }
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setIsOpen(false);
+    }
+    document.addEventListener("pointerdown", handlePointer);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointer);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [isOpen]);
 
   return (
-    <span className={`token-icon token-${normalized}`}>
-      {icon}
-    </span>
-  );
-}
-
-function OperationProgress({ title, detail, isConfirmed = false }: { title: string; detail: string; isConfirmed?: boolean }) {
-  return (
-    <div className="operation-state">
-      <div className="operation-spinner">
-        <span />
-        <ShieldCheck size={24} />
-      </div>
-      <span className="operation-pill"><span /> In progress</span>
-      <h3>{title}</h3>
-      <p>{detail}</p>
-      <div className="operation-steps">
-        <span className="complete"><Check size={13} /> Request prepared</span>
-        <i />
-        <span className="active">
-          {isConfirmed ? <RefreshCw className="spin" size={13} /> : <LoaderCircle className="spin" size={13} />}
-          {isConfirmed ? "Refreshing position data" : "Confirming on Base"}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function OperationFailure({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <div className="operation-state operation-failure">
-      <span className="failure-icon"><AlertTriangle size={24} /></span>
-      <h3>Transaction not completed</h3>
-      <p>{message}</p>
-      <button className="primary-button" onClick={onRetry}>Review and try again</button>
+    <div className={`nav-menu ${isOpen ? "open" : ""}`} ref={menuRef}>
+      <button
+        className={isActive ? "active" : ""}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((value) => !value)}
+      >
+        {label} <ChevronDown size={14} />
+      </button>
+      {isOpen && (
+        <div className="nav-menu-panel" role="menu">
+          {items.map((item) => (
+            <button
+              key={item.id}
+              role="menuitem"
+              className={item.id === current ? "active" : ""}
+              onClick={() => { onSelect(item.id); setIsOpen(false); }}
+            >
+              <span><strong>{item.label}</strong><small>{item.description}</small></span>
+              {item.id === current && <Check size={14} />}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () => void }) {
-  const { currentUser } = useCurrentUser();
   const { evmSmartAccounts } = useEvmSmartAccounts();
   const { signOut } = useSignOut();
   const [selectedProductId, setSelectedProductId] = useState<string>();
@@ -520,7 +467,7 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
   const [closeConfirmed, setCloseConfirmed] = useState(false);
   const [closeSubmitted, setCloseSubmitted] = useState(false);
   const [closeSynced, setCloseSynced] = useState(false);
-  const [activeTab, setActiveTab] = useState<"markets" | "positions">("markets");
+  const [activeTab, setActiveTab] = useState<DashboardView>("markets");
   const [focusedPositionId, setFocusedPositionId] = useState<string>();
   const [latestPositions, setLatestPositions] = useState<Position[]>();
   const [copied, setCopied] = useState(false);
@@ -534,7 +481,6 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
   const createTargetId = useRef<string | undefined>(undefined);
 
   const smartAccount = evmSmartAccounts?.[0]?.address as `0x${string}` | undefined;
-  const email = currentUser?.authenticationMethods?.email?.email;
   const productsQuery = useListEvmBorrowProducts({ network: "base", protocol: "morpho_blue", pageSize: 100 });
   const allProducts = productsQuery.data?.borrowProducts ?? EMPTY_PRODUCTS;
   const products = useMemo(
@@ -577,6 +523,11 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
   const selectedPosition = positions.find(
     (position) => position.borrowProductId === selectedPositionId,
   ) ?? actionPosition;
+  const marketStats = useMorphoMarkets(
+    products.flatMap((product) =>
+      product.protocolDetails.type === "morpho_blue" ? [product.protocolDetails.marketParams.onchainMarketId] : [],
+    ),
+  );
 
   useEffect(() => {
     if (createPosition.status !== "success" || !createPosition.data?.userOpHash) return;
@@ -785,8 +736,27 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
       <header className="topbar">
         <Brand />
         <nav aria-label="Dashboard views">
-          <button className={activeTab === "markets" ? "active" : ""} onClick={viewMarkets}>Markets</button>
-          <button className={activeTab === "positions" ? "active" : ""} onClick={() => viewPositions()}>Positions</button>
+          <NavMenu
+            label="Borrow"
+            current={activeTab}
+            onSelect={(view) => (view === "markets" ? viewMarkets() : viewPositions())}
+            items={[
+              { id: "markets", label: "Markets", description: "Open a credit line" },
+              { id: "positions", label: "Positions", description: "Manage your loans" },
+            ]}
+          />
+          <NavMenu
+            label="Lend"
+            current={activeTab}
+            onSelect={() => { setActiveTab("vaults"); refreshTokenBalances(); }}
+            items={[{ id: "vaults", label: "Vaults", description: "Earn yield on USDC across Morpho vaults" }]}
+          />
+          <NavMenu
+            label="Send"
+            current={activeTab}
+            onSelect={() => { setActiveTab("send"); refreshTokenBalances(); }}
+            items={[{ id: "send", label: "Send USDC", description: "Transfer from your smart account" }]}
+          />
         </nav>
         <div className="account-menu">
           <ThemeToggle theme={theme} onToggle={onToggleTheme} />
@@ -809,8 +779,8 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
       <main className="dashboard">
         <section className="welcome-row">
           <div>
-            <h1>Good morning{email ? `, ${email.split("@")[0]}` : ""}.</h1>
-            <p>Your smart account is ready. Explore available liquidity below.</p>
+            <h1>Good morning, {DISPLAY_NAME}.</h1>
+            <p>Your smart account is ready. Borrow against your assets or put idle USDC to work.</p>
           </div>
           <div className="smart-badge"><ShieldCheck size={19} /><div><strong>Smart Account active</strong><span>Gas sponsored by CDP</span></div></div>
         </section>
@@ -852,7 +822,10 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
             <div className="card-heading"><span>Open positions</span><CircleDollarSign size={20} /></div>
             <strong className="hero-number">{positions.length}</strong>
             <p>{positions.length ? "Your borrowing activity is healthy" : "Start with a collateral-backed loan"}</p>
-            <button className="card-link" onClick={() => viewPositions()}>View positions <ArrowRight size={15} /></button>
+            <div className="card-links">
+              <button className="card-link" onClick={() => viewPositions()}>View positions <ArrowRight size={15} /></button>
+              <button className="card-link" onClick={() => { setActiveTab("vaults"); refreshTokenBalances(); }}>Earn on USDC <ArrowRight size={15} /></button>
+            </div>
           </article>
         </section>
 
@@ -875,6 +848,18 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
               {products.map((product) => {
                 const { collateral, debt } = getProductAssets(product);
                 const lltv = product.protocolDetails.type === "morpho_blue" ? product.protocolDetails.marketParams.lltvBps / 100 : undefined;
+                const stats = product.protocolDetails.type === "morpho_blue"
+                  ? marketStats[product.protocolDetails.marketParams.onchainMarketId.toLowerCase()]
+                  : undefined;
+                const collateralBalance = collateral
+                  ? tokenBalances.balances.find((balance) => balance.address.toLowerCase() === collateral.token.address.toLowerCase())
+                  : undefined;
+                const collateralUsd = collateralBalance
+                  ? estimateUsd(collateralBalance.amount, collateralBalance.symbol, usdPrices)
+                  : undefined;
+                const openPosition = positions.find(
+                  (position) => position.borrowProductId === product.borrowProductId,
+                );
                 return (
                   <article className="market-card" key={product.borrowProductId}>
                     <div className="market-card-top">
@@ -882,15 +867,41 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
                         {collateral && <TokenIcon symbol={collateral.token.symbol} />}
                         {debt && <TokenIcon symbol={debt.token.symbol} />}
                       </div>
-                      <span className="protocol-pill">{product.venue.name}</span>
+                      {openPosition
+                        ? <span className="protocol-pill open-pill"><span className="status-dot" /> Position open</span>
+                        : <span className="protocol-pill">{product.venue.name}</span>}
                     </div>
                     <h3>{collateral?.token.symbol ?? "Collateral"} / {debt?.token.symbol ?? "Loan"}</h3>
                     <p>{product.name}</p>
-                    <div className="market-stats">
+                    <div className="market-stats market-stats-three">
+                      <div><span>Borrow APY</span><strong>{stats ? formatPercent(stats.borrowApy) : "Variable"}</strong></div>
                       <div><span>Max LTV</span><strong>{lltv ? `${lltv.toFixed(0)}%` : "Market"}</strong></div>
-                      <div><span>Rate</span><strong>Variable</strong></div>
+                      <div><span>Liquidity</span><strong>{stats ? formatCompactUsd(stats.liquidityUsd) : "—"}</strong></div>
                     </div>
-                    <button onClick={() => openBorrow(product)}>Borrow {debt?.token.symbol ?? "assets"}<ChevronRight size={17} /></button>
+                    <div className="market-context">
+                      {collateralBalance ? (
+                        <>
+                          <span>You hold</span>
+                          <strong>
+                            {formatAmount(collateralBalance.amount, collateralBalance.symbol.toLowerCase().includes("btc") ? 6 : 4)} {collateralBalance.symbol}
+                            {collateralUsd !== undefined && <small> ≈ {formatUsd(collateralUsd)}</small>}
+                          </strong>
+                        </>
+                      ) : (
+                        <>
+                          <span>Collateral</span>
+                          <strong>{tokenBalances.isLoading ? "Loading balance" : `No ${collateral?.token.symbol ?? "collateral"} in your account`}</strong>
+                        </>
+                      )}
+                    </div>
+                    {openPosition ? (
+                      <div className="market-card-actions">
+                        <button onClick={() => openBorrow(product)}>Borrow more<ChevronRight size={17} /></button>
+                        <button className="secondary" onClick={() => viewPositions(product.borrowProductId)}>Manage position</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => openBorrow(product)}>Borrow {debt?.token.symbol ?? "assets"}<ChevronRight size={17} /></button>
+                    )}
                   </article>
                 );
               })}
@@ -999,6 +1010,18 @@ function Dashboard({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () =
             <div className="position-empty"><Landmark size={28} /><div><strong>No open positions yet</strong><span>Visit the Markets tab to open your first credit line.</span></div></div>
           )}
         </section> : null}
+
+        {activeTab === "vaults" ? (
+          <LendView
+            smartAccount={smartAccount}
+            vaults={LEND_VAULTS}
+            onBalancesChanged={refreshTokenBalances}
+          />
+        ) : null}
+
+        {activeTab === "send" ? (
+          <SendView smartAccount={smartAccount} onSent={refreshTokenBalances} />
+        ) : null}
       </main>
 
       {positionAction === "adjust" && selectedPosition && (

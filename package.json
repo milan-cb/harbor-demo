@@ -11,9 +11,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@coinbase/cdp-api-client": "file:vendor/coinbase-cdp-api-client-0.0.123.tgz",
-    "@coinbase/cdp-core": "file:vendor/coinbase-cdp-core-0.0.123.tgz",
-    "@coinbase/cdp-hooks": "file:vendor/coinbase-cdp-hooks-0.0.123.tgz",
+    "@coinbase/cdp-api-client": "file:vendor/coinbase-cdp-api-client-0.0.127.tgz",
+    "@coinbase/cdp-core": "file:vendor/coinbase-cdp-core-0.0.127.tgz",
+    "@coinbase/cdp-hooks": "file:vendor/coinbase-cdp-hooks-0.0.127.tgz",
     "lucide-react": "^1.39.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -30,9 +30,9 @@
   },
   "pnpm": {
     "overrides": {
-      "@coinbase/cdp-api-client": "file:vendor/coinbase-cdp-api-client-0.0.123.tgz",
-      "@coinbase/cdp-core": "file:vendor/coinbase-cdp-core-0.0.123.tgz",
-      "@coinbase/cdp-hooks": "file:vendor/coinbase-cdp-hooks-0.0.123.tgz"
+      "@coinbase/cdp-api-client": "file:vendor/coinbase-cdp-api-client-0.0.127.tgz",
+      "@coinbase/cdp-core": "file:vendor/coinbase-cdp-core-0.0.127.tgz",
+      "@coinbase/cdp-hooks": "file:vendor/coinbase-cdp-hooks-0.0.127.tgz"
     }
   }
 }

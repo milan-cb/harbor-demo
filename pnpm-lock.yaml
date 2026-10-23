@@ -5,23 +5,23 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@coinbase/cdp-api-client': file:vendor/coinbase-cdp-api-client-0.0.123.tgz
-  '@coinbase/cdp-core': file:vendor/coinbase-cdp-core-0.0.123.tgz
-  '@coinbase/cdp-hooks': file:vendor/coinbase-cdp-hooks-0.0.123.tgz
+  '@coinbase/cdp-api-client': file:vendor/coinbase-cdp-api-client-0.0.127.tgz
+  '@coinbase/cdp-core': file:vendor/coinbase-cdp-core-0.0.127.tgz
+  '@coinbase/cdp-hooks': file:vendor/coinbase-cdp-hooks-0.0.127.tgz
 
 importers:
 
   .:
     dependencies:
       '@coinbase/cdp-api-client':
-        specifier: file:vendor/coinbase-cdp-api-client-0.0.123.tgz
-        version: file:vendor/coinbase-cdp-api-client-0.0.123.tgz
+        specifier: file:vendor/coinbase-cdp-api-client-0.0.127.tgz
+        version: file:vendor/coinbase-cdp-api-client-0.0.127.tgz
       '@coinbase/cdp-core':
-        specifier: file:vendor/coinbase-cdp-core-0.0.123.tgz
-        version: file:vendor/coinbase-cdp-core-0.0.123.tgz(@types/react@19.2.18)(bufferutil@4.1.0)(react@19.2.8)(typescript@5.8.3)(utf-8-validate@6.0.6)
+        specifier: file:vendor/coinbase-cdp-core-0.0.127.tgz
+        version: file:vendor/coinbase-cdp-core-0.0.127.tgz(@types/react@19.2.18)(bufferutil@4.1.0)(react@19.2.8)(typescript@5.8.3)(utf-8-validate@6.0.6)
       '@coinbase/cdp-hooks':
-        specifier: file:vendor/coinbase-cdp-hooks-0.0.123.tgz
-        version: file:vendor/coinbase-cdp-hooks-0.0.123.tgz(@coinbase/cdp-core@file:vendor/coinbase-cdp-core-0.0.123.tgz(@types/react@19.2.18)(bufferutil@4.1.0)(react@19.2.8)(typescript@5.8.3)(utf-8-validate@6.0.6))(react@19.2.8)
+        specifier: file:vendor/coinbase-cdp-hooks-0.0.127.tgz
+        version: file:vendor/coinbase-cdp-hooks-0.0.127.tgz(@coinbase/cdp-core@file:vendor/coinbase-cdp-core-0.0.127.tgz(@types/react@19.2.18)(bufferutil@4.1.0)(react@19.2.8)(typescript@5.8.3)(utf-8-validate@6.0.6))(react@19.2.8)
       lucide-react:
         specifier: ^1.39.0
         version: 1.39.0(react@19.2.8)
@@ -66,13 +66,13 @@ packages:
     resolution: {integrity: sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw==}
     engines: {node: '>=6.9.0'}
 
-  '@coinbase/cdp-api-client@file:vendor/coinbase-cdp-api-client-0.0.123.tgz':
-    resolution: {integrity: sha512-ZfCTBj8qEKL9cMw7izQTKaQRPvkL5KoR3t4ZIakwtiyr3ALJAy2dug6vN7Z/p8WTWXMEX6eNj7bGpm2GYv+1/Q==, tarball: file:vendor/coinbase-cdp-api-client-0.0.123.tgz}
-    version: 0.0.123
+  '@coinbase/cdp-api-client@file:vendor/coinbase-cdp-api-client-0.0.127.tgz':
+    resolution: {integrity: sha512-HLp2RbWAgmSqq7EEy3dPsSzuxbcJ2yVr+J2kSjhzDZ9eKkH0gILqjIdLA63L5wApynO6fQQijwsD1ZPlMfEGVg==, tarball: file:vendor/coinbase-cdp-api-client-0.0.127.tgz}
+    version: 0.0.127
 
-  '@coinbase/cdp-core@file:vendor/coinbase-cdp-core-0.0.123.tgz':
-    resolution: {integrity: sha512-TRcjQ7ZL0exe4O6nPy/DAKL8UBAYcaIGnnNZ8Plg+uAwO1/V9Kx/0UF0JCKSSRWftO+T0Y4m4yiVzs6SogCHyw==, tarball: file:vendor/coinbase-cdp-core-0.0.123.tgz}
-    version: 0.0.123
+  '@coinbase/cdp-core@file:vendor/coinbase-cdp-core-0.0.127.tgz':
+    resolution: {integrity: sha512-h9oIhIV75wKs72LwTP2bJoSNamrmQjp5yoP4Oz+XnLC8plHNG8I+t4HNt8GVFx3ZjPwNRhI4mqE/4hlzkOKWtw==, tarball: file:vendor/coinbase-cdp-core-0.0.127.tgz}
+    version: 0.0.127
     peerDependencies:
       '@react-native-async-storage/async-storage': ^2.0.0
       expo-secure-store: ^15.0.0
@@ -88,11 +88,11 @@ packages:
       x402-fetch:
         optional: true
 
-  '@coinbase/cdp-hooks@file:vendor/coinbase-cdp-hooks-0.0.123.tgz':
-    resolution: {integrity: sha512-MCtzFDm5CjAdXZxYltfPv0eUF5DpO26eoKyPhF8q/u+r8I025vwQdt+sej/moFRc47AVYsN8vDlQ48Obx0GjaQ==, tarball: file:vendor/coinbase-cdp-hooks-0.0.123.tgz}
-    version: 0.0.123
+  '@coinbase/cdp-hooks@file:vendor/coinbase-cdp-hooks-0.0.127.tgz':
+    resolution: {integrity: sha512-G0ZVjWvl3KJaU955S2hk4tdKT96sk8w/+6u/SWS3wum5UjGBdO9T3/W1nuvcafL/ZzaIVnkHm+2cJYbwsSY0QA==, tarball: file:vendor/coinbase-cdp-hooks-0.0.127.tgz}
+    version: 0.0.127
     peerDependencies:
-      '@coinbase/cdp-core': ^0.0.123
+      '@coinbase/cdp-core': ^0.0.127
       react: '>=18.2.0'
 
   '@noble/ciphers@1.3.0':
@@ -1334,16 +1334,16 @@ snapshots:
 
   '@babel/runtime@7.29.7': {}
 
-  '@coinbase/cdp-api-client@file:vendor/coinbase-cdp-api-client-0.0.123.tgz':
+  '@coinbase/cdp-api-client@file:vendor/coinbase-cdp-api-client-0.0.127.tgz':
     dependencies:
       axios: 1.20.0
     transitivePeerDependencies:
       - debug
       - supports-color
 
-  '@coinbase/cdp-core@file:vendor/coinbase-cdp-core-0.0.123.tgz(@types/react@19.2.18)(bufferutil@4.1.0)(react@19.2.8)(typescript@5.8.3)(utf-8-validate@6.0.6)':
+  '@coinbase/cdp-core@file:vendor/coinbase-cdp-core-0.0.127.tgz(@types/react@19.2.18)(bufferutil@4.1.0)(react@19.2.8)(typescript@5.8.3)(utf-8-validate@6.0.6)':
     dependencies:
-      '@coinbase/cdp-api-client': file:vendor/coinbase-cdp-api-client-0.0.123.tgz
+      '@coinbase/cdp-api-client': file:vendor/coinbase-cdp-api-client-0.0.127.tgz
       '@solana/kit': 5.5.1(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@6.0.6)
       '@solana/web3.js': 1.98.4(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@6.0.6)
       bs58: 6.0.0
@@ -1365,9 +1365,9 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@coinbase/cdp-hooks@file:vendor/coinbase-cdp-hooks-0.0.123.tgz(@coinbase/cdp-core@file:vendor/coinbase-cdp-core-0.0.123.tgz(@types/react@19.2.18)(bufferutil@4.1.0)(react@19.2.8)(typescript@5.8.3)(utf-8-validate@6.0.6))(react@19.2.8)':
+  '@coinbase/cdp-hooks@file:vendor/coinbase-cdp-hooks-0.0.127.tgz(@coinbase/cdp-core@file:vendor/coinbase-cdp-core-0.0.127.tgz(@types/react@19.2.18)(bufferutil@4.1.0)(react@19.2.8)(typescript@5.8.3)(utf-8-validate@6.0.6))(react@19.2.8)':
     dependencies:
-      '@coinbase/cdp-core': file:vendor/coinbase-cdp-core-0.0.123.tgz(@types/react@19.2.18)(bufferutil@4.1.0)(react@19.2.8)(typescript@5.8.3)(utf-8-validate@6.0.6)
+      '@coinbase/cdp-core': file:vendor/coinbase-cdp-core-0.0.127.tgz(@types/react@19.2.18)(bufferutil@4.1.0)(react@19.2.8)(typescript@5.8.3)(utf-8-validate@6.0.6)
       react: 19.2.8
 
   '@noble/ciphers@1.3.0': {}
